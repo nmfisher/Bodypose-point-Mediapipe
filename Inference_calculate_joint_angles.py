@@ -365,7 +365,7 @@ if __name__ == '__main__':
     # get video_path from command line using argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--video_path', type=str,
-                        default='/home/hamza/PycharmProjects/Python_angles_mediapipe/cam0_test.mp4')
+                        default='cam0_test.mp4')
     args = parser.parse_args()
 
     video_path = args.video_path
@@ -392,15 +392,15 @@ if __name__ == '__main__':
             results = pose.process(image)
 
             # Draw the pose annotation on the image.
-            image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            mp_drawing.draw_landmarks(
-                image,
-                results.pose_landmarks,
-                mp_pose.POSE_CONNECTIONS,
-                landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
+#            image.flags.writeable = True
+#            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+#            mp_drawing.draw_landmarks(
+#                image,
+#                results.pose_landmarks,
+#                mp_pose.POSE_CONNECTIONS,
+#                landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
 
-            print(results.pose_world_landmarks)
+#            print(results.pose_world_landmarks)
 
             if results.pose_world_landmarks is not None:
                 a, b, c = -1, -1, -1
@@ -445,9 +445,9 @@ if __name__ == '__main__':
 
             # Flip the image horizontally for a selfie-view display.
 
-            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
+ #           cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+ #           if cv2.waitKey(5) & 0xFF == 27:
+ #               break
 
     cap.release()
     all_points = np.array(all_points)
@@ -468,4 +468,58 @@ if __name__ == '__main__':
 
     calculate_joint_angles(filtered_kpts)
     # draw_skeleton_from_joint_coordinates(filtered_kpts)
-    draw_skeleton_from_joint_angles(filtered_kpts)
+#    draw_skeleton_from_joint_angles(filtered_kpts)
+    #print(filtered_kpts)
+
+
+    def add_bone_definition(indent, joint_name, offsets, hierarchy, bvh_string):
+        offsets[joint_name] = [0.0, 0.0, 0.0]
+        offset = offsets[joint_name]
+
+        joint_string = f"""
+JOINT {joint_name}
+{{
+	OFFSET {offset[0]} {offset[1]} {offset[2]}
+	CHANNELS 3 Xrotation Yrotation Zrotation"""
+
+        bvh_string += "\n".join([("\t" * indent) + line for line in joint_string.split("\n")])
+
+        if isinstance(hierarchy, dict):
+            children = hierarchy[joint_name]
+            for child in children:
+                bvh_string = add_bone_definition(indent + 1, child, offsets, hierarchy[joint_name], bvh_string)  
+            joint_string = ""
+        else:
+            joint_string = f"""
+	End Site
+	{{
+		OFFSET 1.000000 0.000000 0.000000
+	}}"""
+        joint_string += """
+}""" 
+
+        bvh_string += "\n".join([("\t" * indent) + line for line in joint_string.split("\n")])
+        return bvh_string 
+
+    bvh_string='''HIERARCHY
+ROOT hips
+{
+	OFFSET 0.000000 0.000000 0.000000
+	CHANNELS Xposition Yposition Zposition Xrotation Yrotation Zrotation'''
+
+    hierarchy = {
+        'lefthip': { 'leftknee':{ 'leftfoot': {'left_heal', 'left_foot_index'}}},
+        'righthip': {'rightknee': {'rightfoot':{'right_heal','right_foot_index'}}},
+        'neck': {
+            'leftshoulder':{'leftelbow':{'leftwrist'}},
+            'rightshoulder':{'rightelbow':{'rightwrist'}},
+         }
+    }
+    indent = 1
+    offsets = {}
+    for joint in hierarchy:
+        bvh_string = add_bone_definition(indent, joint, offsets, hierarchy, bvh_string)
+    bvh_string += """
+}"""
+    print(bvh_string)
+
